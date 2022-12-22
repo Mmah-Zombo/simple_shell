@@ -1,43 +1,57 @@
-#include "shell.h"
-/**
- * _prompt - write prompt and read a command line.
- * @myself: String for prompt init.
- * @argv: shell arguments.
- * @hist: History head list.
- *
- * Return: NULL or pointer to command list.
- */
-command_t **_prompt(char *myself, char *argv)
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+int main()
 {
-	size_t buff_size = 0;
-	ssize_t char_amount = 0;
-	char *cmd_line = NULL;
-	command_t *cmd_node = NULL;
-	command_t **cmd_list = &cmd_node; /* Command List */
+  char *line = NULL;
+  size_t size = 0;
+  int status;
 
-	if (isatty(STDIN_FILENO))
-	{
-		/* write(STDOUT_FILENO, shell_phrase, char_amount); */
-		/* ToDO: Insert new _getline */
-		char_amount = getline(&cmd_line, &buff_size, stdin);
-	}
-	else
-	{
-		/* Take command from **argv */
-		cmd_line = argv;
-	}
-	fflush(stdin);
-	/* Insert into history here */
+  while (1)
+  {
+    // Display prompt and read command line
+    printf("$ ");
+    int chars_read = getline(&line, &size, stdin);
 
-	/* print_listint(*hist); */
-	if (char_amount < 0)
-		cmd_list = NULL;
-	else
-	{
-		*cmd_list = _parser_cmd(myself, cmd_line);
-		free(cmd_line);
-		cmd_line = NULL;
-		return (cmd_list);
-	}
-	return (NULL);
+    // Check for end of file condition (Ctrl+D)
+    if (chars_read == -1)
+    {
+      printf("\n");
+      break;
+    }
+
+    // Remove newline character from command line
+    line[chars_read - 1] = '\0';
+
+    // Fork a child process to execute the command
+    pid_t pid = fork();
+
+    if (pid == 0)
+    {
+      // Child process
+      execlp(line, line, NULL);
+
+      // If execlp returns, it was unsuccessful
+      printf("sh: command not found: %s\n", line);
+      exit(1);
+    }
+    else if (pid > 0)
+    {
+      // Parent process
+      waitpid(pid, &status, 0);
+    }
+    else
+    {
+      // Error
+      perror("fork");
+      exit(1);
+    }
+  }
+
+  free(line);
+
+  return 0;
 }
+
